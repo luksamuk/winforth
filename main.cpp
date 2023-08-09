@@ -5,6 +5,8 @@
 #include <cctype>
 #include <cstring>
 #include <cstdlib>
+#include <sstream>
+#include <fstream>
 
 typedef std::vector<std::string> worddef;
 typedef std::pair<std::string, worddef> wordentry;
@@ -27,7 +29,7 @@ if(values.size() < n) { \
 }
 
 bool
-read(void)
+_internal_read(std::istream& is)
 {
 	char buffer[500];
 	const char *delim = " \n\t\r";
@@ -35,7 +37,7 @@ read(void)
 	bool hold = false;
 	
 	buffer[0] = '\0';
-	std::cin.getline(buffer, 500);
+	is.getline(buffer, 500);
 
 	char *next = strtok(buffer, delim);
 
@@ -60,6 +62,12 @@ read(void)
 	} while((next != NULL));
 
 	return hold;
+}
+
+bool
+read(void)
+{
+	return _internal_read(std::cin);
 }
 
 void
@@ -309,7 +317,7 @@ eval(std::string input)
 			}
 
 			dict.push_back(wordentry(myword, def));
-			std::cout << myword.c_str() /*<< std::endl*/;
+			std::cout << myword.c_str() << ' ' /*<< std::endl*/;
 		} else if(op_eq(input, "if")) { // ( <p> if <c>... then | <p> if <c>... else <a...> then )
 			int predicate = values.back(); values.pop_back();
 			if(predicate == 0) {
@@ -378,8 +386,23 @@ eval(std::string input)
 	return STATUS_EVAL_OP;
 }
 
+void
+load_file(const char *filename)
+{
+	std::ifstream ifs;
+	ifs.open(filename);
+	if(ifs.fail()) {
+		std::cerr << "Unable to open: " << filename << std::endl;
+		return;
+	}
+	while(ifs.good())
+		_internal_read(ifs);
+
+	ifs.close();
+}
+
 int
-main(void)
+main(int argc, char **argv)
 {
 	std::cout
 		<< "winforth 0.1" << std::endl
@@ -387,10 +410,24 @@ main(void)
 		<< std::endl << std::endl
 		<< "type 'bye' to quit" << std::endl;
 
+	bool loaded_file = false;
+
+	if(argc > 1) {
+		int i;
+		for(i = 1; i < argc; i++) {
+			std::cout << "loading " << argv[i] << std::endl;
+			load_file(argv[i]);
+			loaded_file = true;
+		}
+	}
+
 	int result;
 	for(;;) {
-
-		while(read()) ;
+		if(!loaded_file) {
+			while(read()) ;
+		} else {
+			loaded_file = false;
+		}
 
 		while(has_token()) {
 			switch(result = eval(next_token())) {
@@ -402,13 +439,15 @@ main(void)
 				tokenstream.clear();
 				break;
 			case STATUS_EVAL_OP:
+				if(loaded_file) std::cout << std::endl;
 				break;
 			default: break;
 			}
 		}
 
-		if(result == STATUS_EVAL_OP)
+		if(result == STATUS_EVAL_OP) {
 			std::cout << " ok";
+		}
 		std::cout << std::endl;
 	}
 
