@@ -24,7 +24,7 @@ static std::deque<std::string> tokenstream;
 
 #define enforce_arity(n) \
 if(values.size() < n) { \
-	std::cerr << "Stack underflow!" << std::endl; \
+	std::cerr << "Stack underflow!"; \
 	return STATUS_ERR; \
 }
 
@@ -228,6 +228,7 @@ eval(std::string input)
 			print_stack();
 			//std::cout << std::endl;
 		} else if(op_eq(input, "bye")) { // ( -- )
+			std::cerr << "Quaerendo invenietis." << std::endl;
 			exit(0);
 		} else if(op_eq(input, "dup")) { // ( n -- n n )
 			enforce_arity(1);
@@ -405,8 +406,8 @@ int
 main(int argc, char **argv)
 {
 	std::cout
-		<< "winforth 0.1" << std::endl
-		<< "Copyright (c) 2023 Lucas S. Vieira <lucasvieira@protonmail.com>"
+		<< "Winforth 0.1" << std::endl
+		<< "Copyright (c) 2023 Lucas S. Vieira"
 		<< std::endl << std::endl
 		<< "type 'bye' to quit" << std::endl;
 
@@ -432,14 +433,14 @@ main(int argc, char **argv)
 		while(has_token()) {
 			switch(result = eval(next_token())) {
 			case STATUS_ERR:
-				std::cout << "Stack trace: ";
+				std::cout << std::endl << "Stack trace: ";
 				print_stack();
-				std::cout << std::endl;
 				values.clear();
 				tokenstream.clear();
 				break;
 			case STATUS_EVAL_OP:
-				if(loaded_file) std::cout << std::endl;
+				if(loaded_file)
+					std::cout << std::endl;
 				break;
 			default: break;
 			}
@@ -447,6 +448,8 @@ main(int argc, char **argv)
 
 		if(result == STATUS_EVAL_OP) {
 			std::cout << " ok";
+		} else {
+			std::cerr << '\a';
 		}
 		std::cout << std::endl;
 	}
