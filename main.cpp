@@ -4,6 +4,7 @@
 #include <map>
 #include <cctype>
 #include <cstring>
+#include <cstdlib>
 
 typedef std::vector<std::string> worddef;
 typedef std::pair<std::string, worddef> wordentry;
