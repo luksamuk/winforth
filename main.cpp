@@ -438,7 +438,7 @@ eval(std::string input)
 			else if((def = dict_find(input)) == NULL) {
 				std::cerr
 					<< input.c_str()
-					<< " ?"
+					<< " ??"
 					/*<< std::endl*/;
 				return STATUS_ERR;
 			} else {

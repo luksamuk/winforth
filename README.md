@@ -58,8 +58,7 @@ Comparison and logic/bitwise words conform to pushing values like `true` or `fal
 In Winforth, variables are global values identified by a positive integer address. Each variable is declared through a textual alias, like the following example:
 
 ```fth
-variable foo
-variable bar
+variable <variable-name>
 ```
 
 After declaring a variable, you can reference it by name; referencing it will push the variable's address, which is just a positive integer value, so please be mindful of that.
@@ -84,6 +83,16 @@ variable sum
 2 3 * sum !
 sum @ .
 ```
+
+If you're using the definitions in `init.fth`, you may even use a shortcut for retrieving and printing data from a variable:
+
+```fth
+variable sum
+
+2 3 * sum !
+sum ?
+```
+
 
 #### Comments
 
@@ -139,6 +148,17 @@ else
 ( value is topmost on stack )
 0 >= if 1 else -1 then
 ```
+
+
+## Loading files
+
+If you wish to load definitions from files at startup, just pass them as arguments from command line:
+
+```
+winforth.exe file1.fth file2.fth...
+```
+
+Especially, load the file `init.fth` for some Winforth basic bootstrapped words that might be useful, such as `cr` and `?`.
 
 ## License
 
