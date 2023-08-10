@@ -8,12 +8,16 @@
 #include <sstream>
 #include <fstream>
 
-typedef std::vector<std::string> worddef;
+typedef std::vector<std::string>        worddef;
 typedef std::pair<std::string, worddef> wordentry;
-typedef std::vector<wordentry> dictionary;
+typedef std::vector<wordentry>          dictionary;
+typedef std::pair<std::string, long>    varentry;
+typedef std::vector<varentry>           varindex;
 
-static std::deque<long> values;
-static dictionary      dict;
+static std::deque<long>        values;
+static std::vector<long>       variables;
+static dictionary              dict;
+static varindex                varidx;
 static std::deque<std::string> tokenstream;
 
 #define STATUS_PUSHED   0
@@ -103,6 +107,17 @@ dict_find(std::string wordname)
 	return NULL;
 }
 
+long
+var_find(std::string varname)
+{
+	varindex::iterator it;
+	for(it = varidx.begin(); it != varidx.end(); it++) {
+		if(it->first.compare(varname.c_str()) == 0)
+			return it->second;
+	}
+	return -1;
+}
+
 bool
 str_numeric(std::string s)
 {
@@ -188,14 +203,18 @@ accum_until(const char *token)
 int
 eval(std::string input)
 {
+	/* Default numeric values */
 	if(str_numeric(input)) {
 		values.push_back(strtol(input.c_str(), NULL, 10));
 		return STATUS_PUSHED;
 	} else {
+		/* CONSTANTS */
 		if(op_eq(input, "true")) // ( -- -1 )
 			values.push_back(-1);
 		else if(op_eq(input, "false")) // ( -- 0 )
 			values.push_back(0);
+
+		/* PRIMITIVE WORDS */
 		else if(op_eq(input, "+")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
@@ -254,56 +273,89 @@ eval(std::string input)
 		} else if(op_eq(input, "drop")) { // ( n1 -- )
 			enforce_arity(1);
 			values.pop_back();
-		} else if(op_eq(input, "<")) {
+		} else if(op_eq(input, "<")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back((op1 < op2) ? -1 : 0);
-		} else if(op_eq(input, "<=")) {
+		} else if(op_eq(input, "<=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back((op1 <= op2) ? -1 : 0);
-		} else if(op_eq(input, "<>")) {
+		} else if(op_eq(input, "<>")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back((op1 != op2) ? -1 : 0);
-		} else if(op_eq(input, "=")) {
+		} else if(op_eq(input, "=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back((op1 == op2) ? -1 : 0);
-		} else if(op_eq(input, ">")) {
+		} else if(op_eq(input, ">")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back((op1 > op2) ? -1 : 0);
-		} else if(op_eq(input, ">=")) {
+		} else if(op_eq(input, ">=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back((op1 >= op2) ? -1 : 0);
-		} else if(op_eq(input, "and")) {
+		} else if(op_eq(input, "and")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back(op1 & op2);
-		} else if(op_eq(input, "or")) {
+		} else if(op_eq(input, "or")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back(op1 | op2);
-		} else if(op_eq(input, "xor")) {
+		} else if(op_eq(input, "xor")) { // ( n1 n2 -- r )
 			enforce_arity(2);
 			int op2 = values.back(); values.pop_back();
 			int op1 = values.back(); values.pop_back();
 			values.push_back(op1 ^ op2);
-		} else if(op_eq(input, "invert")) {
+		} else if(op_eq(input, "invert")) { // ( n -- r )
 			enforce_arity(1);
 			int op = values.back(); values.pop_back();
 			values.push_back(~op);
-		} else if(op_eq(input, ":")) { // ( : <wordname>... ; )
+		} else if(op_eq(input, "emit")) { // ( c -- )
+			// print char to console
+			char c = (char)values.back(); values.pop_back();
+			std::cout << c;
+		} else if(op_eq(input, "!")) { // ( <value> <var&> ! )
+			enforce_arity(2);
+			int var = values.back(); values.pop_back();
+			int val = values.back(); values.pop_back();
+			if((var < 0) || (var >= variables.size())) {
+				std::cerr << "Invalid variable!";
+				return STATUS_ERR;
+			}
+			variables[var] = val;
+		} else if(op_eq(input, "@")) { // ( <var&> @ )
+			enforce_arity(1);
+			int var = values.back(); values.pop_back();
+			if((var < 0) || (var >= variables.size())) {
+				std::cerr << "Invalid variable!";
+				return STATUS_ERR;
+			}
+			values.push_back(variables[var]);
+
+		/* SPECIAL FORMS */
+		} else if(op_eq(input, "variable")) {
+			// variable <varname>
+
+			std::string varname = next_token();
+			variables.push_back(0);
+			varentry idx = varentry(varname, (long)(variables.size() - 1));
+			varidx.push_back(idx);
+			std::cout << varname.c_str() << ' ';
+		} else if(op_eq(input, ":")) {
+			// ( : <wordname>... ; )
+
 			std::string input = next_token();
 			if(op_eq(input, ";")) {
 				std::cerr << "Syntax error!";
@@ -319,7 +371,10 @@ eval(std::string input)
 
 			dict.push_back(wordentry(myword, def));
 			std::cout << myword.c_str() << ' ' /*<< std::endl*/;
-		} else if(op_eq(input, "if")) { // ( <p> if <c>... then | <p> if <c>... else <a...> then )
+
+		} else if(op_eq(input, "if")) {
+			// ( <p> if <c>... then )
+			// ( <p> if <c>... else <a...> then )
 			int predicate = values.back(); values.pop_back();
 			if(predicate == 0) {
 				if(gulp_consequent()) {
@@ -365,11 +420,22 @@ eval(std::string input)
 						return STATUS_ERR;
 				}	
 			}
-		} else if(op_eq(input, "(")) { // ( comments )
+
+		} else if(op_eq(input, "(")) {
+			// ( comments )
 			gulp_until(")");
-		} else { // ( Normal evaluation, find word on dictionary )
-			worddef *def = dict_find(input);
-			if(def == NULL) {
+
+
+		/* DEFAULT EVALUATION */
+		} else {
+			long varaddr;
+			worddef *def;
+			// Find variable on index
+			if((varaddr = var_find(input)) >= 0) {
+				values.push_back(varaddr);
+			}
+			// Find word on dictionary
+			else if((def = dict_find(input)) == NULL) {
 				std::cerr
 					<< input.c_str()
 					<< " ?"

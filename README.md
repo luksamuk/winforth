@@ -44,11 +44,46 @@ This Forth implementation is case-sensitive, and has the following built-in word
 - `+`, `-`, `*`, `/`: Arithmetic operators. For division, the second operator must not be zero.
 - `<`, `<=`, `<>`, `>`, `>=`, `=`: Words for comparing integer numbers. These words consume the two topmost values and push the result.
 - `.s`: Prints the stack to console.
+- `emit`: Prints a character to console. Topmost value is considered the ASCII decimal value of the character.
+- `!`: Stores a value on a variable. See the "Variables" section below for usage.
+- `@`: Retrieves the value from a variable. See the "Variables" section below for usage.
 - `bye`: Exits the interpreter.
 
 Comparison and logic/bitwise words conform to pushing values like `true` or `false`, or `-1` and `0` respectively. Because of the binary representation of these values, the logic words also work seamlessly as bitwise operations.
 
 ### Other syntax
+
+#### Variables
+
+In Winforth, variables are global values identified by a positive integer address. Each variable is declared through a textual alias, like the following example:
+
+```fth
+variable foo
+variable bar
+```
+
+After declaring a variable, you can reference it by name; referencing it will push the variable's address, which is just a positive integer value, so please be mindful of that.
+
+The default value of any new variable is 0; the value of a variable can be queried by using the word `@` with the following syntax:
+
+```fth
+<varaddr> @
+```
+
+Similarly, a new value can be stored on a variable by using the word `!` with the following syntax:
+
+```fth
+<value> <varaddr> !
+```
+
+The following example creates a variable `sum`, stores the value of `2 * 3` in it, queries the value by pushing it onto the stack, and finally pops and prints the stored value.
+
+```fth
+variable sum
+
+2 3 * sum !
+sum @ .
+```
 
 #### Comments
 
