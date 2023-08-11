@@ -5,17 +5,23 @@
 #include <cctype>
 #include <cstring>
 #include <cstdlib>
-#include <sstream>
 #include <fstream>
+
+
+typedef char                            cell;
+typedef long                            number;
+typedef long                            a_addr;
+typedef char                            c_addr;
 
 typedef std::vector<std::string>        worddef;
 typedef std::pair<std::string, worddef> wordentry;
 typedef std::vector<wordentry>          dictionary;
-typedef std::pair<std::string, long>    varentry;
+
+typedef std::pair<std::string, a_addr>   varentry;
 typedef std::vector<varentry>           varindex;
 
-static std::deque<long>        values;
-static std::vector<long>       variables;
+static std::deque<number>      values;
+static std::vector<cell>       dataspc;
 static dictionary              dict;
 static varindex                varidx;
 static std::deque<std::string> tokenstream;
@@ -30,6 +36,31 @@ static std::deque<std::string> tokenstream;
 if(values.size() < n) { \
 	std::cerr << "Stack underflow!"; \
 	return STATUS_ERR; \
+}
+
+inline bool
+is_dataspc_aligned(void)
+{
+	return ((a_addr)dataspc.size() % (a_addr)sizeof(a_addr)) == 0;
+}
+
+a_addr
+dataspc_next_aligned(void)
+{
+	a_addr here    = (a_addr)dataspc.size();
+	a_addr size    = (a_addr)sizeof(number);
+	a_addr diff    = here % size;
+	a_addr missing = (diff > 0) ? (size - (here % size)) : 0;
+	return here + missing;
+}
+
+void
+dataspc_align(void)
+{
+	a_addr aligned = dataspc_next_aligned();
+	while(dataspc.size() < aligned) {
+		dataspc.push_back(0);
+	}
 }
 
 bool
@@ -107,7 +138,7 @@ dict_find(std::string wordname)
 	return NULL;
 }
 
-long
+cell
 var_find(std::string varname)
 {
 	varindex::iterator it;
@@ -139,7 +170,7 @@ str_numeric(std::string s)
 void
 print_stack(void)
 {
-	std::deque<long>::iterator it;
+	std::deque<number>::iterator it;
 	for(it = values.begin(); it != values.end(); it++) {
 		std::cout << *it << ' ';
 	}
@@ -213,27 +244,30 @@ eval(std::string input)
 			values.push_back(-1);
 		else if(op_eq(input, "false")) // ( -- 0 )
 			values.push_back(0);
+		else if(op_eq(input, "cell")) // ( -- s )
+			values.push_back((a_addr)(sizeof(cell)));
+
 
 		/* PRIMITIVE WORDS */
 		else if(op_eq(input, "+")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op1 + op2);
 		} else if(op_eq(input, "-")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op1 - op2);
 		} else if(op_eq(input, "*")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op1 * op2);
 		} else if(op_eq(input, "/")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			if(op2 == 0) {
 				std::cerr << "Arithmetic exception!";
 				return STATUS_ERR;
@@ -241,7 +275,7 @@ eval(std::string input)
 			values.push_back(op1 / op2);
 		} else if(op_eq(input, ".")) { // ( n1 -- ), prints to console
 			enforce_arity(1);
-			int val = values.back(); values.pop_back();
+			number val = values.back(); values.pop_back();
 			std::cout << val /*<< std::endl*/;
 		} else if(op_eq(input, ".s")) { // ( -- ), prints to console
 			print_stack();
@@ -254,73 +288,73 @@ eval(std::string input)
 			values.push_back(values.back());
 		} else if(op_eq(input, "swap")) { // ( n1 n2 -- n2 n1 )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op2);
 			values.push_back(op1);
 		} else if(op_eq(input, "rot")) { // ( n1 n2 n3 -- n2 n3 n1 )
 			enforce_arity(3);
-			int op3 = values.back(); values.pop_back();
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op3 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op2);
 			values.push_back(op3);
 			values.push_back(op1);
 		} else if(op_eq(input, "over")) { // ( n1 n2 -- n1 n2 n1 )
 			enforce_arity(2);
-			int val = values[values.size() - 2];
+			number val = values[values.size() - 2];
 			values.push_back(val);
 		} else if(op_eq(input, "drop")) { // ( n1 -- )
 			enforce_arity(1);
 			values.pop_back();
 		} else if(op_eq(input, "<")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back((op1 < op2) ? -1 : 0);
 		} else if(op_eq(input, "<=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back((op1 <= op2) ? -1 : 0);
 		} else if(op_eq(input, "<>")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back((op1 != op2) ? -1 : 0);
 		} else if(op_eq(input, "=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back((op1 == op2) ? -1 : 0);
 		} else if(op_eq(input, ">")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back((op1 > op2) ? -1 : 0);
 		} else if(op_eq(input, ">=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back((op1 >= op2) ? -1 : 0);
 		} else if(op_eq(input, "and")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op1 & op2);
 		} else if(op_eq(input, "or")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op1 | op2);
 		} else if(op_eq(input, "xor")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			int op2 = values.back(); values.pop_back();
-			int op1 = values.back(); values.pop_back();
+			number op2 = values.back(); values.pop_back();
+			number op1 = values.back(); values.pop_back();
 			values.push_back(op1 ^ op2);
 		} else if(op_eq(input, "invert")) { // ( n -- r )
 			enforce_arity(1);
-			int op = values.back(); values.pop_back();
+			number op = values.back(); values.pop_back();
 			values.push_back(~op);
 		} else if(op_eq(input, "emit")) { // ( c -- )
 			// print char to console
@@ -328,31 +362,59 @@ eval(std::string input)
 			std::cout << c;
 		} else if(op_eq(input, "!")) { // ( <value> <var&> ! )
 			enforce_arity(2);
-			int var = values.back(); values.pop_back();
-			int val = values.back(); values.pop_back();
-			if((var < 0) || (var >= variables.size())) {
-				std::cerr << "Invalid variable!";
+			a_addr var = values.back(); values.pop_back();
+			number val = values.back(); values.pop_back();
+			if((var < 0) || (var >= dataspc.size())) {
+				std::cerr << "Access violation!";
 				return STATUS_ERR;
 			}
-			variables[var] = val;
-		} else if(op_eq(input, "@")) { // ( <var&> @ )
+			
+			// This assumes that an std::vector is contiguous.
+			number *varptr = (number*)&dataspc[var];
+			*varptr = val;
+		} else if(op_eq(input, "@")) { // ( <var&> @ -- n )
 			enforce_arity(1);
-			int var = values.back(); values.pop_back();
-			if((var < 0) || (var >= variables.size())) {
+			a_addr var = values.back(); values.pop_back();
+			if((var < 0) || (var >= dataspc.size())) {
 				std::cerr << "Invalid variable!";
 				return STATUS_ERR;
 			}
-			values.push_back(variables[var]);
+			values.push_back(dataspc[var]);
+		} else if(op_eq(input, "here")) { // ( -- n )
+			values.push_back((a_addr)dataspc.size());
+		} else if(op_eq(input, "allot")) { // ( n -- )
+			enforce_arity(1);
+			number size = values.back(); values.pop_back();
+			if(size > 0) {
+				while(size > 0) {
+					dataspc.push_back(0);
+					size--;
+				}
+			} else {
+				while(size < 0) {
+					if(dataspc.size() == 0) {
+						std::cerr << "Access violation!";
+						return STATUS_ERR;
+					}
+					dataspc.pop_back();
+					size++;
+				}
+			}
+		} else if(op_eq(input, "align")) { // ( -- )
+			dataspc_align();
+		} else if(op_eq(input, "aligned")) { // ( -- a-addr )
+			values.push_back((a_addr)dataspc_next_aligned());
 
-		/* SPECIAL FORMS */
-		} else if(op_eq(input, "variable")) {
-			// variable <varname>
 
-			std::string varname = next_token();
-			variables.push_back(0);
-			varentry idx = varentry(varname, (long)(variables.size() - 1));
+
+		/* SPECIAL FORMS-LIKE WORDS */
+		} else if(op_eq(input, "constant")) {
+			a_addr addr      = values.back(); values.pop_back();
+			std::string name = next_token();
+			varentry idx = varentry(name, addr);
 			varidx.push_back(idx);
-			std::cout << varname.c_str() << ' ';
+			std::cout << name.c_str() << ' ';
+
 		} else if(op_eq(input, ":")) {
 			// ( : <wordname>... ; )
 
@@ -370,12 +432,12 @@ eval(std::string input)
 			}
 
 			dict.push_back(wordentry(myword, def));
-			std::cout << myword.c_str() << ' ' /*<< std::endl*/;
+			std::cout << myword.c_str() << ' ';
 
 		} else if(op_eq(input, "if")) {
 			// ( <p> if <c>... then )
 			// ( <p> if <c>... else <a...> then )
-			int predicate = values.back(); values.pop_back();
+			number predicate = values.back(); values.pop_back();
 			if(predicate == 0) {
 				if(gulp_consequent()) {
 					// We found an "else", so accumulate until "then"
@@ -428,7 +490,7 @@ eval(std::string input)
 
 		/* DEFAULT EVALUATION */
 		} else {
-			long varaddr;
+			cell varaddr;
 			worddef *def;
 			// Find variable on index
 			if((varaddr = var_find(input)) >= 0) {
@@ -476,6 +538,9 @@ main(int argc, char **argv)
 		<< "Copyright (c) 2023 Lucas S. Vieira"
 		<< std::endl << std::endl
 		<< "type 'bye' to quit" << std::endl;
+
+	// Reserve 1024 cells at startup
+	dataspc.reserve(1024 * sizeof(cell));
 
 	bool loaded_file = false;
 

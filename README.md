@@ -27,10 +27,16 @@ Part of these characteristics are derived from implementation constraints (such 
 
 ### Primitive words
 
-This Forth implementation is case-sensitive, and has the following built-in words:
+This Forth implementation is case-sensitive, and has the following built-ins.
 
-- `true`: Evaluates to -1 (all bits set).
-- `false`: Evaluates to 0 (no bits set).
+#### Constants
+
+- `true`: Pushes -1 (all bits set).
+- `false`: Pushes 0 (no bits set).
+- `cell`: Pushes the cell size in bytes.
+
+#### Words
+
 - `.`: Pops the topmost value and prints to console.
 - `dup`: Push a copy of the topmost stack value.
 - `swap`: Switch places between te two topmost stack values.
@@ -45,15 +51,54 @@ This Forth implementation is case-sensitive, and has the following built-in word
 - `<`, `<=`, `<>`, `>`, `>=`, `=`: Words for comparing integer numbers. These words consume the two topmost values and push the result.
 - `.s`: Prints the stack to console.
 - `emit`: Prints a character to console. Topmost value is considered the ASCII decimal value of the character.
-- `!`: Stores a value on a variable. See the "Variables" section below for usage.
-- `@`: Retrieves the value from a variable. See the "Variables" section below for usage.
+- `!`: Stores a value on a given data address. See "Memory allocation and variables" for usage.
+- `@`: Retrieves the value from a given data address. See "Memory allocation and variables" for usage.
+- `here`: Pushes the address of the first free cell on data store.
+- `allot`: Allocates or deallocates a given number of bytes, without alignment. See "Memory allocation and variables" for usage.
+- `align`: Aligns the first free cell address on the data store. See "Memory allocation and variables" for usage.
+- `aligned`: Pushes the first free aligned address on the data store. Must be greater or equal than `here`.
+- `constant`: Creates a new word on the variables dictionary, that points to the (assumed) address that is currently topmost.
 - `bye`: Exits the interpreter.
 
 Comparison and logic/bitwise words conform to pushing values like `true` or `false`, or `-1` and `0` respectively. Because of the binary representation of these values, the logic words also work seamlessly as bitwise operations.
 
+#### Bootstrapped words
+
+There are also a few words that are bootstrapped through the `init.fth` file:
+
+- `cr`: Prints a new line on console.
+- `?`: Shortcut for printing the contents of an address on the data store.
+- `cells`: Multiplies the topmost number by the size of a cell.
+- `,`: Allocates a single cell on the data store and writes the topmost value to it.
+- `variable`: Defines a new zero-initialized variable. See "Memory allocation and variables" for usage.
+
 ### Other syntax
 
-#### Variables
+#### Memory allocation and variables
+
+In Winforth, memory allocation is mostly done by reserving a contiguous amount of cells on the data store (which is manipulated like a stack).
+
+Let's say we want to reserve 10 cells. This can be easily done with `allot`:
+
+```fth
+10 cells allot
+```
+
+To deallocate these cells, provided that no more cells were allocated since then, just use a negative number of cells.
+
+```fth
+-10 cells allot
+```
+
+Now suppose we want to reserve the space for 10 numbers. By Winforth's convention, a number has the size of four cells, so we need to multiply to get our desired number of total cells:
+
+```fth
+align 10 4 cells * allot
+```
+
+Notice that we also align the data store to the next number-aligned address. This is important since we are allotting cells by hand.
+
+If this syntax is a little too low-level, you may want to declare variables, or even store these addresses on variables.
 
 In Winforth, variables are global values identified by a positive integer address. Each variable is declared through a textual alias, like the following example:
 
