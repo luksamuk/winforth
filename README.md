@@ -58,6 +58,9 @@ This Forth implementation is case-sensitive, and has the following built-ins.
 - `align`: Aligns the first free cell address on the data store. See "Memory allocation and variables" for usage.
 - `aligned`: Pushes the first free aligned address on the data store. Must be greater or equal than `here`.
 - `constant`: Creates a new word on the variables dictionary, that points to the (assumed) address that is currently topmost.
+- `s"`: Reads a string from input and stores it on the string buffer. The string that was read will only live until the next call to `s"`, and is delimited by a whitespace after `s"` and a `"` character or a newline/end-of-file.
+- `."`: Reads a string from input and immediately displays it. The string buffer is unaffected and the string does not live beyond its reading. The string is delimited by a whitespace after `."` and a `"` character or a newline/end-of-file.
+- `loadfile`: Reads and evaluates a file. The file path must be in the string buffer.
 - `bye`: Exits the interpreter.
 
 Comparison and logic/bitwise words conform to pushing values like `true` or `false`, or `-1` and `0` respectively. Because of the binary representation of these values, the logic words also work seamlessly as bitwise operations.
@@ -66,7 +69,7 @@ Comparison and logic/bitwise words conform to pushing values like `true` or `fal
 
 There are also a few words that are bootstrapped through the `init.fth` file:
 
-- `cr`: Prints a new line on console.
+- `cr`: Prints a new line on console by emitting characters '\n' and '\r' respectively.
 - `?`: Shortcut for printing the contents of an address on the data store.
 - `cells`: Multiplies the topmost number by the size of a cell.
 - `,`: Allocates a single cell on the data store and writes the topmost value to it.
@@ -204,6 +207,16 @@ winforth.exe file1.fth file2.fth...
 ```
 
 Especially, load the file `init.fth` for some Winforth basic bootstrapped words that might be useful, such as `cr` and `?`.
+
+### Loading files at runtime
+
+To load a file at runtime, use the `loadfile` command. This command is non-standard and uses a file path that should be stored on the string buffer by the `s"` word:
+
+```fth
+s" file.fth" loadfile
+```
+
+The file will be immediately evaluated as if its contents were typed on console.
 
 ## License
 

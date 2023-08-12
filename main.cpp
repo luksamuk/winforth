@@ -7,23 +7,35 @@
 #include <cstdlib>
 #include <fstream>
 
+// Byte sizes:
+// - Address unit = 1 byte
+// - Cell = 8 bytes
 
-typedef char                            cell;
-typedef long                            number;
-typedef long                            a_addr;
-typedef char                            c_addr;
+#if (_MSC_VER <= 1200)
+	typedef __int8    au;
+	typedef __int64   cell;
+#else
+	#include <cstdint>
+	typedef int8_t  au;
+	typedef int64_t cell;
+#endif
+
+typedef cell   a_addr; 
+typedef au     c_addr;
 
 typedef std::vector<std::string>        worddef;
 typedef std::pair<std::string, worddef> wordentry;
 typedef std::vector<wordentry>          dictionary;
 
-typedef std::pair<std::string, a_addr>   varentry;
+typedef std::pair<std::string, a_addr>  varentry;
 typedef std::vector<varentry>           varindex;
 
-static std::deque<number>      values;
+static std::deque<cell>        values;
 static std::vector<cell>       dataspc;
 static dictionary              dict;
 static varindex                varidx;
+static std::string             stringbuffer;
+
 static std::deque<std::string> tokenstream;
 
 #define STATUS_PUSHED   0
@@ -48,7 +60,7 @@ a_addr
 dataspc_next_aligned(void)
 {
 	a_addr here    = (a_addr)dataspc.size();
-	a_addr size    = (a_addr)sizeof(number);
+	a_addr size    = (a_addr)sizeof(cell);
 	a_addr diff    = here % size;
 	a_addr missing = (diff > 0) ? (size - (here % size)) : 0;
 	return here + missing;
@@ -70,6 +82,7 @@ _internal_read(std::istream& is)
 	const char *delim = " \n\t\r";
 	
 	bool hold = false;
+	bool read_string_next = false;
 	
 	buffer[0] = '\0';
 	is.getline(buffer, 500);
@@ -80,9 +93,19 @@ _internal_read(std::istream& is)
 		return false;
 
 	do {
+		// Process current token
 		std::string token(next);
 		tokenstream.push_back(token);
-		next = strtok(NULL, delim);
+
+		// Set up next token
+		if(op_eq(token, "s\"") || op_eq(token, ".\"")) {
+			// Gulp an entire string token
+			read_string_next = true;
+			next = strtok(NULL, "\"");
+		} else {
+			read_string_next = false;
+			next = strtok(NULL, delim);
+		}
 
 		// Holding criteria
 		if(!hold) {
@@ -94,6 +117,8 @@ _internal_read(std::istream& is)
 				hold = false;
 			}
 		}
+
+
 	} while((next != NULL));
 
 	return hold;
@@ -170,11 +195,12 @@ str_numeric(std::string s)
 void
 print_stack(void)
 {
-	std::deque<number>::iterator it;
+	std::deque<cell>::iterator it;
 	for(it = values.begin(); it != values.end(); it++) {
-		std::cout << *it << ' ';
+		printf("%lld ", *it);
 	}
-	std::cout << '<' << values.size() << '>';
+	printf("<%llu>", values.size());
+	//std::cout << '<' << values.size() << '>';
 }
 
 void
@@ -231,6 +257,22 @@ accum_until(const char *token)
 	return def;
 }
 
+bool
+load_file(const char *filename)
+{
+	std::ifstream ifs;
+	ifs.open(filename);
+	if(ifs.fail()) {
+		std::cerr << "Unable to open: " << filename << std::endl;
+		return false;
+	}
+	while(ifs.good())
+		_internal_read(ifs);
+
+	ifs.close();
+	return true;
+}
+
 int
 eval(std::string input)
 {
@@ -251,23 +293,23 @@ eval(std::string input)
 		/* PRIMITIVE WORDS */
 		else if(op_eq(input, "+")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op1 + op2);
 		} else if(op_eq(input, "-")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op1 - op2);
 		} else if(op_eq(input, "*")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op1 * op2);
 		} else if(op_eq(input, "/")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			if(op2 == 0) {
 				std::cerr << "Arithmetic exception!";
 				return STATUS_ERR;
@@ -275,8 +317,8 @@ eval(std::string input)
 			values.push_back(op1 / op2);
 		} else if(op_eq(input, ".")) { // ( n1 -- ), prints to console
 			enforce_arity(1);
-			number val = values.back(); values.pop_back();
-			std::cout << val /*<< std::endl*/;
+			cell val = values.back(); values.pop_back();
+			printf("%lld", val);
 		} else if(op_eq(input, ".s")) { // ( -- ), prints to console
 			print_stack();
 			//std::cout << std::endl;
@@ -288,73 +330,73 @@ eval(std::string input)
 			values.push_back(values.back());
 		} else if(op_eq(input, "swap")) { // ( n1 n2 -- n2 n1 )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op2);
 			values.push_back(op1);
 		} else if(op_eq(input, "rot")) { // ( n1 n2 n3 -- n2 n3 n1 )
 			enforce_arity(3);
-			number op3 = values.back(); values.pop_back();
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op3 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op2);
 			values.push_back(op3);
 			values.push_back(op1);
 		} else if(op_eq(input, "over")) { // ( n1 n2 -- n1 n2 n1 )
 			enforce_arity(2);
-			number val = values[values.size() - 2];
+			cell val = values[values.size() - 2];
 			values.push_back(val);
 		} else if(op_eq(input, "drop")) { // ( n1 -- )
 			enforce_arity(1);
 			values.pop_back();
 		} else if(op_eq(input, "<")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back((op1 < op2) ? -1 : 0);
 		} else if(op_eq(input, "<=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back((op1 <= op2) ? -1 : 0);
 		} else if(op_eq(input, "<>")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back((op1 != op2) ? -1 : 0);
 		} else if(op_eq(input, "=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back((op1 == op2) ? -1 : 0);
 		} else if(op_eq(input, ">")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back((op1 > op2) ? -1 : 0);
 		} else if(op_eq(input, ">=")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back((op1 >= op2) ? -1 : 0);
 		} else if(op_eq(input, "and")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op1 & op2);
 		} else if(op_eq(input, "or")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op1 | op2);
 		} else if(op_eq(input, "xor")) { // ( n1 n2 -- r )
 			enforce_arity(2);
-			number op2 = values.back(); values.pop_back();
-			number op1 = values.back(); values.pop_back();
+			cell op2 = values.back(); values.pop_back();
+			cell op1 = values.back(); values.pop_back();
 			values.push_back(op1 ^ op2);
 		} else if(op_eq(input, "invert")) { // ( n -- r )
 			enforce_arity(1);
-			number op = values.back(); values.pop_back();
+			cell op = values.back(); values.pop_back();
 			values.push_back(~op);
 		} else if(op_eq(input, "emit")) { // ( c -- )
 			// print char to console
@@ -363,14 +405,14 @@ eval(std::string input)
 		} else if(op_eq(input, "!")) { // ( <value> <var&> ! )
 			enforce_arity(2);
 			a_addr var = values.back(); values.pop_back();
-			number val = values.back(); values.pop_back();
+			cell   val = values.back(); values.pop_back();
 			if((var < 0) || (var >= dataspc.size())) {
 				std::cerr << "Access violation!";
 				return STATUS_ERR;
 			}
 			
 			// This assumes that an std::vector is contiguous.
-			number *varptr = (number*)&dataspc[var];
+			cell *varptr = (cell*)&dataspc[var];
 			*varptr = val;
 		} else if(op_eq(input, "@")) { // ( <var&> @ -- n )
 			enforce_arity(1);
@@ -384,7 +426,7 @@ eval(std::string input)
 			values.push_back((a_addr)dataspc.size());
 		} else if(op_eq(input, "allot")) { // ( n -- )
 			enforce_arity(1);
-			number size = values.back(); values.pop_back();
+			cell size = values.back(); values.pop_back();
 			if(size > 0) {
 				while(size > 0) {
 					dataspc.push_back(0);
@@ -404,8 +446,38 @@ eval(std::string input)
 			dataspc_align();
 		} else if(op_eq(input, "aligned")) { // ( -- a-addr )
 			values.push_back((a_addr)dataspc_next_aligned());
+		} else if(op_eq(input, "s\"")) { // ( -- )
+			stringbuffer = next_token();
+			// Gforth pushes a string address and its size
+			// onto the stack, but we won't do this here because
+			// the string is not being held at a manipulable memory
+			// location. :^P
+		} else if(op_eq(input, ".\"")) { // ( -- )
+			std::cout << next_token().c_str();
+		} else if(op_eq(input, "loadfile")) { // NON-STANDARD
+			if(stringbuffer.compare("") == 0) {
+				std::cerr << "String buffer is empty!";
+				return STATUS_ERR;
+			}
+			// Stores current token stream elsewhere
+			std::deque<std::string> copystream(tokenstream);
+			tokenstream.clear();
+			// Reads file path from stringbuffer.
+			if(!load_file(stringbuffer.c_str()))
+				return STATUS_ERR;
 
-
+			while(has_token()) {
+				int result;
+				result = eval(next_token());
+				if(result == STATUS_ERR) {
+					// Return error and purposely lose
+					// copystream on the process
+					return result;
+				}
+			}
+			
+			// Recover stream
+			tokenstream = copystream;
 
 		/* SPECIAL FORMS-LIKE WORDS */
 		} else if(op_eq(input, "constant")) {
@@ -437,7 +509,7 @@ eval(std::string input)
 		} else if(op_eq(input, "if")) {
 			// ( <p> if <c>... then )
 			// ( <p> if <c>... else <a...> then )
-			number predicate = values.back(); values.pop_back();
+			cell predicate = values.back(); values.pop_back();
 			if(predicate == 0) {
 				if(gulp_consequent()) {
 					// We found an "else", so accumulate until "then"
@@ -515,21 +587,6 @@ eval(std::string input)
 	return STATUS_EVAL_OP;
 }
 
-void
-load_file(const char *filename)
-{
-	std::ifstream ifs;
-	ifs.open(filename);
-	if(ifs.fail()) {
-		std::cerr << "Unable to open: " << filename << std::endl;
-		return;
-	}
-	while(ifs.good())
-		_internal_read(ifs);
-
-	ifs.close();
-}
-
 int
 main(int argc, char **argv)
 {
@@ -564,10 +621,11 @@ main(int argc, char **argv)
 		while(has_token()) {
 			switch(result = eval(next_token())) {
 			case STATUS_ERR:
-				std::cout << std::endl << "Stack trace: ";
+				std::cout << std::endl << "Stack dump: ";
 				print_stack();
 				values.clear();
 				tokenstream.clear();
+				stringbuffer = "";
 				break;
 			case STATUS_EVAL_OP:
 				if(loaded_file)
@@ -577,7 +635,7 @@ main(int argc, char **argv)
 			}
 		}
 
-		if(result == STATUS_EVAL_OP) {
+		if(result != STATUS_ERR) {
 			std::cout << " ok";
 		} else {
 			std::cerr << '\a';

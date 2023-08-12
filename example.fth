@@ -1,3 +1,7 @@
+( example.fth -- Some Winforth examples       )
+( This file is a part of Winforth.            )
+( Copyright (c) 2023 Lucas S. Vieira          )
+
 : square ( n -- n )
   dup * ;
 
@@ -27,3 +31,5 @@ here 'arr @ - #arr !
 
 : ?num ( idx -- n )
   @num . ;
+
+cr ." example.fth was successfully loaded!" cr
