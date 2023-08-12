@@ -199,7 +199,6 @@ print_stack(void)
 		printf("%lld ", *it);
 	}
 	printf("<%llu>", values.size());
-	//std::cout << '<' << values.size() << '>';
 }
 
 void
@@ -592,8 +591,8 @@ main(int argc, char **argv)
 	std::cout
 		<< "Winforth 0.1" << std::endl
 		<< "Copyright (c) 2023 Lucas S. Vieira"
-		<< std::endl << std::endl
-		<< "type 'bye' to quit" << std::endl;
+		<< std::endl
+		<< "type 'bye' to quit" << std::endl << std::endl;
 
 	// Reserve 1024 cells at startup
 	dataspc.reserve(1024 * sizeof(cell));
