@@ -196,7 +196,8 @@ print_stack(void)
 {
 	std::deque<cell>::iterator it;
 	for(it = values.begin(); it != values.end(); it++) {
-		printf("%lld ", *it);
+		printf("%lld", *it);
+		putchar(32);
 	}
 	printf("<%llu>", values.size());
 }
@@ -319,7 +320,6 @@ eval(std::string input)
 			printf("%lld", val);
 		} else if(op_eq(input, ".s")) { // ( -- ), prints to console
 			print_stack();
-			//std::cout << std::endl;
 		} else if(op_eq(input, "bye")) { // ( -- )
 			std::cerr << "Quaerendo invenietis." << std::endl;
 			exit(0);

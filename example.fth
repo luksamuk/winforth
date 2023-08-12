@@ -15,13 +15,13 @@
 ( allocating an array )
 variable 'arr
 variable #arr
-align
 here 'arr !
-10 4 cells * allot
+10 cells allot
 here 'arr @ - #arr !
 
+( getters, setters, utils )
 : arridx ( idx -- a-addr )
-  4 cells * 'arr @ + ;
+  cell * 'arr @ + ;
 
 : !num ( n idx -- )
   arridx ! ;
@@ -31,5 +31,10 @@ here 'arr @ - #arr !
 
 : ?num ( idx -- n )
   @num . ;
+
+( arithmetic example )
+90 0 !num 30 1 !num
+0 @num 1 @num + 2 !num
+2 ?num
 
 cr ." example.fth was successfully loaded!" cr
