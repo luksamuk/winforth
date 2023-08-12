@@ -11,13 +11,12 @@
 // - Address unit = 1 byte
 // - Cell = 8 bytes
 
-#if (_MSC_VER <= 1200)
+#if defined(_MSC_VER) && (_MSC_VER <= 1200)
 	typedef __int8    au;
 	typedef __int64   cell;
 #else
-	#include <cstdint>
-	typedef int8_t  au;
-	typedef int64_t cell;
+	typedef char          au;
+	typedef long long int cell;
 #endif
 
 typedef cell   a_addr; 

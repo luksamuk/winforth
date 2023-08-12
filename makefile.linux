@@ -1,3 +1,4 @@
 all:
-	g++ --std=c++98 -o Debug/winforth main.cpp
+	@mkdir -p bin
+	g++ --std=c++98 -o bin/winforth main.cpp
 
