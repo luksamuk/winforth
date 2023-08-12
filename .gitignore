@@ -3,3 +3,6 @@
 *.pdb
 *.ilk
 *.pch
+Debug/
+bin/
+
