@@ -5,5 +5,5 @@
 : cr         10 emit 13 emit ;
 : ?          @ . ;
 : cells      cell * ;
-: ,          here 1 cells allot ! ;
+: ,          here cell allot ! ;
 : variable   align here 0 , constant ;
