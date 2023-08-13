@@ -213,13 +213,35 @@ The following example prints `"Hello world!"` on screen 10 times, followed by a 
 
 The value of `<index>` is incremented by the end of execution of the behaviour's words, but the current value of an iteration is not available.
 
-If you want to keep track of your iteration, you can do so by declaring your own variable:
+If you want to keep track of your iteration, you can do so by declaring your own variable. The following example will output values for the variable `i` on an inclusive range of `0..9`:
 
 ```fth
 variable i
 0 i !
 10 0 do ." Iteration: " i ? cr i @ 1 + i ! loop
 ```
+
+Declaring a loop with definite range is not the only looping method. It is also possible to declare an indefinite loop, which will repeat a certain behaviour until a condition is met.
+
+The indefinite loop has a syntax as follows:
+
+```fth
+begin <behaviour...> <predicate...> until
+```
+
+The words `begin` and `until` are delimiters for the entire behaviour of the loop, however here some words that are part of the loop behaviour are described as `<predicate...>`. This is because the keyword `until` expects the last part of the loop to be something that evaluates to `true` (`-1`) or `false` (`0`).
+
+If after executing the entire loop behaviour there is a `-1` atop the stack, the loop breaks; if, however, there is any other value, the loop iterates and the behaviour is executed again.
+
+Below is an example that works just like the definite loop, but in an explicit manner: a variable `i` is declared, and its value is printed and then incremented. Afterwards, we check whether its value is `10` by using the `=` word. The result of this comparison is left on the stack, and is consumed by `until`.
+
+```fth
+variable i
+0 i !
+begin ." i = " i ? cr i @ 1 + i ! i @ 10 = until
+```
+
+*NOTE:* Due to their nature, it is possible to have a definite loop within an indefinite loop and vice-versa, but that's the most that this Winforth implementation can do, due to reasons already explained.
 
 ## Loading files
 

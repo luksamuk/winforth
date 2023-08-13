@@ -36,7 +36,8 @@ static varindex                varidx;
 static std::string             stringbuffer;
 
 static std::deque<std::string> tokenstream;
-static bool nested_loop = false;
+static bool nested_do_loop = false;
+static bool nested_begin_loop = false;
 
 #define STATUS_PUSHED   0
 #define STATUS_EVAL_OP  1
@@ -579,17 +580,18 @@ eval(std::string input)
 			// ( comments )
 			gulp_until(")");
 		} else if(op_eq(input, "do")) { // ( <lim> <idx> do <a...> loop
-			if(nested_loop) {
+			enforce_arity(2);
+			if(nested_do_loop) {
 				std::cerr << "Nested loops are not supported!";
-				nested_loop = false;
+				nested_do_loop = false;
 				return STATUS_ERR;
 			}
 
-			nested_loop = true;
+			nested_do_loop = true;
 			cell idx   = values.back(); values.pop_back();
 			cell limit = values.back(); values.pop_back();
 
-			// Accumulate until finish keyword
+			// Accumulate until "loop" keyword
 			worddef acc = accum_until("loop");
 			tokenstream.push_front(std::string("loop"));
 			while(idx != limit) {
@@ -602,15 +604,48 @@ eval(std::string input)
 				while(!op_eq(tokenstream.front(), "loop")) {
 					int result = eval(next_token());
 					if(result == STATUS_ERR) {
-						nested_loop = false;
+						nested_do_loop = false;
 						return STATUS_ERR;
 					}
 				}
 
 				idx++;
 			}
-			nested_loop = false;
+			nested_do_loop = false;
 			// Consume "loop"
+			next_token();
+		} else if(op_eq(input, "begin")) { // begin <a...> <p> until
+			if(nested_begin_loop) {
+				std::cerr << "Nested loops are not supported!";
+				nested_begin_loop = false;
+				return STATUS_ERR;
+			}
+
+			nested_begin_loop = true;
+			// Accumulate until "until" keyword
+			worddef acc = accum_until("until");
+			tokenstream.push_front(std::string("until"));
+			cell pred = 0;
+			do {
+				worddef::reverse_iterator wit;
+				for(wit = acc.rbegin(); wit != acc.rend(); wit++) {
+					tokenstream.push_front(*wit);
+				}
+
+				while(!op_eq(tokenstream.front(), "until")) {
+					int result = eval(next_token());
+					if(result == STATUS_ERR) {
+						nested_begin_loop = false;
+						return STATUS_ERR;
+					}
+				}
+
+				// Evaluate top of stack
+				enforce_arity(1);
+				pred = values.back(); values.pop_back();
+			} while(pred != -1);
+			nested_begin_loop = false;
+			// Consume "until"
 			next_token();
 
 
