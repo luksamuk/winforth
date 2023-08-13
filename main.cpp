@@ -19,8 +19,8 @@
 	typedef long long int cell;
 #endif
 
-typedef cell   a_addr; 
-typedef au     c_addr;
+typedef cell   a_addr;
+typedef cell   c_addr;
 
 typedef std::vector<std::string>        worddef;
 typedef std::pair<std::string, worddef> wordentry;
@@ -236,7 +236,7 @@ print_stack(void)
 		printf("%lld", *it);
 		putchar(32);
 	}
-	printf("<%llu>", values.size());
+	printf("<%lld>", values.size());
 }
 
 void
