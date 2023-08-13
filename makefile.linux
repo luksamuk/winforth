@@ -1,4 +1,4 @@
 all:
 	@mkdir -p bin
-	g++ --std=c++98 -o bin/winforth main.cpp
+	g++ --std=c++98 -O2 -o bin/winforth main.cpp
 

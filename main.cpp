@@ -30,7 +30,7 @@ typedef std::pair<std::string, a_addr>  varentry;
 typedef std::vector<varentry>           varindex;
 
 static std::deque<cell>        values;
-static std::vector<cell>       dataspc;
+static std::vector<au>         dataspc;
 static dictionary              dict;
 static varindex                varidx;
 static std::string             stringbuffer;
@@ -72,6 +72,41 @@ dataspc_align(void)
 	while(dataspc.size() < aligned) {
 		dataspc.push_back(0);
 	}
+}
+
+varentry
+make_var(std::string name, a_addr addr)
+{
+	varentry idx = varentry(name, addr);
+	varidx.push_back(idx);
+	return idx;
+}
+
+inline a_addr
+here()
+{
+	return (a_addr)dataspc.size();
+}
+
+int
+allot(cell size)
+{
+	if(size > 0) {
+		while(size > 0) {
+			dataspc.push_back(0);
+			size--;
+		}
+	} else {
+		while(size < 0) {
+			if(dataspc.size() == 0) {
+				std::cerr << "Access violation!";
+				return STATUS_ERR;
+			}
+			dataspc.pop_back();
+			size++;
+		}
+	}
+	return STATUS_EVAL_OP;
 }
 
 bool
@@ -419,27 +454,14 @@ eval(std::string input)
 				std::cerr << "Invalid variable!";
 				return STATUS_ERR;
 			}
-			values.push_back(dataspc[var]);
+			cell *c = (cell*)&dataspc[var];
+			values.push_back(*c);
 		} else if(op_eq(input, "here")) { // ( -- n )
-			values.push_back((a_addr)dataspc.size());
+			values.push_back(here());
 		} else if(op_eq(input, "allot")) { // ( n -- )
 			enforce_arity(1);
 			cell size = values.back(); values.pop_back();
-			if(size > 0) {
-				while(size > 0) {
-					dataspc.push_back(0);
-					size--;
-				}
-			} else {
-				while(size < 0) {
-					if(dataspc.size() == 0) {
-						std::cerr << "Access violation!";
-						return STATUS_ERR;
-					}
-					dataspc.pop_back();
-					size++;
-				}
-			}
+			return allot(size);
 		} else if(op_eq(input, "align")) { // ( -- )
 			dataspc_align();
 		} else if(op_eq(input, "aligned")) { // ( -- a-addr )
@@ -481,8 +503,7 @@ eval(std::string input)
 		} else if(op_eq(input, "constant")) {
 			a_addr addr      = values.back(); values.pop_back();
 			std::string name = next_token();
-			varentry idx = varentry(name, addr);
-			varidx.push_back(idx);
+			varentry idx = make_var(name, addr);
 			std::cout << name.c_str() << ' ';
 
 		} else if(op_eq(input, ":")) {
@@ -586,6 +607,20 @@ eval(std::string input)
 }
 
 int
+init_defs(void)
+{
+	int result;
+	a_addr aux;
+
+	// Word "i"
+	aux = here();
+	result = allot(sizeof(cell));
+	if(result == STATUS_ERR)
+		return STATUS_ERR;
+	make_var(std::string("i"), aux);
+}
+
+int
 main(int argc, char **argv)
 {
 	std::cout
@@ -596,6 +631,8 @@ main(int argc, char **argv)
 
 	// Reserve 1024 cells at startup
 	dataspc.reserve(1024 * sizeof(cell));
+
+	init_defs();
 
 	bool loaded_file = false;
 
