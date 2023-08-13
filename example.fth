@@ -1,6 +1,6 @@
 ( example.fth -- Some Winforth examples       )
 ( This file is a part of Winforth.            )
-( Copyright (c) 2023 Lucas S. Vieira          )
+( Copyright [c] 2023 Lucas S. Vieira          )
 
 : square ( n -- n )
   dup * ;
