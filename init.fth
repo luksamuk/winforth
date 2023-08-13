@@ -7,3 +7,5 @@
 : cells      cell * ;
 : ,          here cell allot ! ;
 : variable   align here 0 , constant ;
+: 1+         1 + ;
+: 1-         1 - ;

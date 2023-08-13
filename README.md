@@ -87,6 +87,8 @@ There are also a few words that are bootstrapped through the `init.fth` file:
 - `cells`: Multiplies the topmost number by the size of a cell.
 - `,`: Allocates a single cell on the data store and writes the topmost value to it.
 - `variable`: Defines a new zero-initialized variable. See "Memory allocation and variables" for usage.
+- `1+`: Add 1 to topmost value.
+- `1-`: Subtract 1 from topmost value.
 
 Make sure you always load the `init.fth` file through command line or through the `loadfile` word.
 
@@ -251,7 +253,7 @@ If you want to keep track of your iteration, you can do so by declaring your own
 ```fth
 variable i
 0 i !
-10 0 do ." Iteration: " i ? cr i @ 1 + i ! loop
+10 0 do ." Iteration: " i ? cr i @ 1+ i ! loop
 ```
 
 Declaring a loop with definite range is not the only looping method. It is also possible to declare an indefinite loop, which will repeat a certain behaviour until a condition is met.
@@ -271,7 +273,7 @@ Below is an example that works just like the definite loop, but in an explicit m
 ```fth
 variable i
 0 i !
-begin ." i = " i ? cr i @ 1 + i ! i @ 10 = until
+begin ." i = " i ? cr i @ 1+ i ! i @ 10 = until
 ```
 
 **NOTE:** Due to their nature, it is possible to have a definite loop within an indefinite loop and vice-versa, but that's the most that this Winforth implementation can do, due to reasons already explained.
