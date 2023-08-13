@@ -1,0 +1,71 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update -y
+          sudo apt install p7zip-full build-essential -y
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: amd64, arm64
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build for Windows
+        run: |
+          docker run \
+            -v $(pwd):/prj \
+            giulioz/vc6-docker \
+            wine cmd /k /prj/ci/build.bat
+          7z a winforth-win32.zip winforth.exe init.fth
+          rm winforth.exe
+
+      - name: Build for Linux
+        run: |
+          make -f makefile.linux
+          mv bin/winforth ./winforth
+          tar cvzf winforth-linux.tar.gz winforth init.fth
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: builds
+          path: |
+            winforth-win32.zip
+            winforth-linux.tar.gz
+            example.fth
+
+  release:
+    if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: [build]
+    steps:
+      - name: Recover artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create release
+        id: release_step
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "builds/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+
