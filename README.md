@@ -1,8 +1,8 @@
 # Winforth
 
-<center>
-<img src="winforth.png" alt="Winforth logo">
-</center>
+<p align="center">
+<img src="winforth.png" alt="Winforth logo"/>
+</p>
 
 A Forth implementation in C++, built on Windows 98.
 
