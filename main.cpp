@@ -36,6 +36,7 @@ static varindex                varidx;
 static std::string             stringbuffer;
 
 static std::deque<std::string> tokenstream;
+static bool nested_loop = false;
 
 #define STATUS_PUSHED   0
 #define STATUS_EVAL_OP  1
@@ -577,6 +578,40 @@ eval(std::string input)
 		} else if(op_eq(input, "(")) {
 			// ( comments )
 			gulp_until(")");
+		} else if(op_eq(input, "do")) { // ( <lim> <idx> do <a...> loop
+			if(nested_loop) {
+				std::cerr << "Nested loops are not supported!";
+				nested_loop = false;
+				return STATUS_ERR;
+			}
+
+			nested_loop = true;
+			cell idx   = values.back(); values.pop_back();
+			cell limit = values.back(); values.pop_back();
+
+			// Accumulate until finish keyword
+			worddef acc = accum_until("loop");
+			tokenstream.push_front(std::string("loop"));
+			while(idx != limit) {
+				worddef::reverse_iterator wit;
+				for(wit = acc.rbegin(); wit != acc.rend(); wit++) {
+					tokenstream.push_front(*wit);
+				}
+
+				// Evaluate until next token is "loop"
+				while(!op_eq(tokenstream.front(), "loop")) {
+					int result = eval(next_token());
+					if(result == STATUS_ERR) {
+						nested_loop = false;
+						return STATUS_ERR;
+					}
+				}
+
+				idx++;
+			}
+			nested_loop = false;
+			// Consume "loop"
+			next_token();
 
 
 		/* DEFAULT EVALUATION */
@@ -606,6 +641,7 @@ eval(std::string input)
 	return STATUS_EVAL_OP;
 }
 
+/*
 int
 init_defs(void)
 {
@@ -619,6 +655,7 @@ init_defs(void)
 		return STATUS_ERR;
 	make_var(std::string("i"), aux);
 }
+*/
 
 int
 main(int argc, char **argv)
@@ -632,7 +669,7 @@ main(int argc, char **argv)
 	// Reserve 1024 cells at startup
 	dataspc.reserve(1024 * sizeof(cell));
 
-	init_defs();
+	//init_defs();
 
 	bool loaded_file = false;
 

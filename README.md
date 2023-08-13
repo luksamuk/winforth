@@ -81,6 +81,8 @@ There are also a few words that are bootstrapped through the `init.fth` file:
 
 In Winforth, memory allocation is mostly done by reserving a contiguous amount of cells on the data store (which is manipulated like a stack).
 
+Even though these 
+
 Let's say we want to reserve 10 cells. This can be easily done with `allot`:
 
 ```fth
@@ -92,14 +94,6 @@ To deallocate these cells, provided that no more cells were allocated since then
 ```fth
 -10 cells allot
 ```
-
-Now suppose we want to reserve the space for 10 numbers. By Winforth's convention, a number has the size of four cells, so we need to multiply to get our desired number of total cells:
-
-```fth
-align 10 4 cells * allot
-```
-
-Notice that we also align the data store to the next number-aligned address. This is important since we are allotting cells by hand.
 
 If this syntax is a little too low-level, you may want to declare variables, or even store these addresses on variables.
 
@@ -197,6 +191,35 @@ else
 0 >= if 1 else -1 then
 ```
 
+#### Loops
+
+Winforth has very basic support for loops -- and when we say *very basic*, we mean it. It is possible to declare nested loops syntactically in Winforth like any other Forth implementation, however these operate better when compiled, and this implementation of Winforth is actually an interpreter, so there is no proper way to know where each loop ends syntactically. This is why you cannot have nested loops.
+
+It is possible to encapsulate repeated behaviour by using a definite loop.
+
+A definite loop has the following syntax:
+
+```fth
+<limit> <index> do <behaviour...> loop
+```
+
+This structure will repeatedly execute the words represented by `<behaviour...>`, until `<index>` reaches the `<limit>` value.
+
+The following example prints `"Hello world!"` on screen 10 times, followed by a line break:
+
+```fth
+10 0 do ." Hello world!" cr loop
+```
+
+The value of `<index>` is incremented by the end of execution of the behaviour's words, but the current value of an iteration is not available.
+
+If you want to keep track of your iteration, you can do so by declaring your own variable:
+
+```fth
+variable i
+0 i !
+10 0 do ." Iteration: " i ? cr i @ 1 + i ! loop
+```
 
 ## Loading files
 
